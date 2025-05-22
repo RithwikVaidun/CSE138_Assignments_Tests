@@ -1,13 +1,11 @@
 # How to run
 
-Extract the archive in the same root folder where your project files are located.  
-Below is an example project directory:
-CMakeLists.txt
-Dockerfile
-/source (contains your code)
-/test (the above archived folder extracted which should contain the test suite)
-
-Copy
+Extract the archive in the same root folder where your project files are located.<br><br>
+Below is an example project directory:<br>
+CMakeLists.txt<br>
+Dockerfile<br>
+/source (contains your code)<br>
+/test (the above archived folder extracted which should contain the test suite)<br>
 
 ## Steps
 
