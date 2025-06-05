@@ -55,7 +55,7 @@ Dockerfile<br>
 
 - To run a specific test with a filter:
     ```sh
-    python -m kvs_test <project_dir> --hw 3 -f causal
+    python -m kvs_test <project_dir> --hw %ASSIGNMENT NUMBER% -f causal
     ```
 - To run all tests without stopping at first failure:
     ```sh
