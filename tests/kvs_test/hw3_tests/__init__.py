@@ -1,0 +1,5 @@
+from .basic_tests import BASIC_TESTS
+from .causal_consistency_tests import CAUSAL_CONSISTENCY_TESTS
+from .eventual_consistency_tests import EVENTUAL_CONSISTENCY_TESTS
+from .view_change_tests import VIEW_CHANGE_TESTS
+from .availability_tests import AVAILABILITY_TESTS
