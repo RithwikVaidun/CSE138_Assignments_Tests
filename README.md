@@ -1,4 +1,5 @@
 ## Below is what your homework and test suite directory should look like
+```
 Project Root:
 │   build_check.sh
 │   causal_consistency.pdf
@@ -49,7 +50,7 @@ Project Root:
         │       performance_tests.py
         │       resharding_tests.py
         │       __init__.py
-             
+```
            
         
                 
