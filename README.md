@@ -79,7 +79,7 @@ Project Root:
 │   validate_hw4_setup.py
 │   ...
 │   
-├───src # Folder where you store you code
+├───src # Folder wherein you store your code
 │       
 └───tests
     │   .gitignore
