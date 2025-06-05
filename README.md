@@ -48,13 +48,28 @@ Dockerfile<br>
     python -m kvs_test <project_dir> --hw 3
     ```
 
+- To run Assign. 4 tests:
+    ```sh
+    python -m kvs_test <project_dir> --hw 4
+    ```
+
 - To run a specific test with a filter:
     ```sh
     python -m kvs_test <project_dir> --hw 3 -f causal
     ```
-
+- To run all tests without stopping at first failure:
+    ```sh
+    python -m kvs_test <project_dir> --hw %ASSIGNMENT NUMBER% --no-fail-fast
+    ```
 **Note:**  
 If your project directory is similar to the example above, replace `<project_dir>` with two dots (`..`).  
 For example:
 ```sh
 python -m kvs_test .. --hw 3
+```
+
+**Changelog:**
+* v1.3: Assignment 4's test API and tests were created.
+* v1.2: A few status and Docker network bugs were fixed by Alan, Rithwick, and Graham for Assignment 3.
+* v1.1: Assignment 3's test API and tests were created.
+* v1.0: First version contained an advanced (modified version of the one provided by Professor Alvaro) test for Assignment 2.
