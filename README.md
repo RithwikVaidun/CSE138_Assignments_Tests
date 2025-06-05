@@ -1,61 +1,3 @@
-## Below is what your homework and test suite directory should look like
-```
-Project Root:
-│   build_check.sh
-│   causal_consistency.pdf
-│   CMakeLists.txt
-│   Dockerfile
-│   run_hw4_tests.sh
-│   sharding_demo.py
-│   validate_hw4_setup.py
-│   ...
-│   
-├───src # Folder where you store you code
-│       
-└───tests
-    │   .gitignore
-    │   .python-version
-    │   a.txt
-    │   Makefile
-    │   pyproject.toml
-    │   README.md
-    │   requirements.txt
-    │   uv.lock
-    │               
-    └───kvs_test
-        │   containers.py
-        │   hw2_api.py
-        │   hw3_api.py
-        │   hw4_api.py
-        │   testcase.py
-        │   util.py
-        │   __main__.py
-        │   
-        ├───hw2_tests
-        │       advanced_tests.py
-        │       basic.py
-        │       __init__.py
-        │       
-        ├───hw3_tests
-        │       availability_tests.py
-        │       basic_tests.py
-        │       causal_consistency_tests.py
-        │       eventual_consistency_tests.py
-        │       view_change_tests.py
-        │       __init__.py
-        │       
-        ├───hw4_tests
-        │       advanced_sharding_tests.py
-        │       basic_sharding_tests.py
-        │       performance_tests.py
-        │       resharding_tests.py
-        │       __init__.py
-```
-           
-        
-                
-
-
 # How to run
 
 Extract the archive in the same root folder where your project files are located.<br><br>
@@ -124,6 +66,59 @@ If your project directory is similar to the example above, replace `<project_dir
 For example:
 ```sh
 python -m kvs_test .. --hw 3
+```
+**Below is what your assignment and test suite directory tree should look like:**
+```
+Project Root:
+│   build_check.sh
+│   causal_consistency.pdf
+│   CMakeLists.txt
+│   Dockerfile
+│   run_hw4_tests.sh
+│   sharding_demo.py
+│   validate_hw4_setup.py
+│   ...
+│   
+├───src # Folder where you store you code
+│       
+└───tests
+    │   .gitignore
+    │   .python-version
+    │   a.txt
+    │   Makefile
+    │   pyproject.toml
+    │   README.md
+    │   requirements.txt
+    │   uv.lock
+    │               
+    └───kvs_test
+        │   containers.py
+        │   hw2_api.py
+        │   hw3_api.py
+        │   hw4_api.py
+        │   testcase.py
+        │   util.py
+        │   __main__.py
+        │   
+        ├───hw2_tests
+        │       advanced_tests.py
+        │       basic.py
+        │       __init__.py
+        │       
+        ├───hw3_tests
+        │       availability_tests.py
+        │       basic_tests.py
+        │       causal_consistency_tests.py
+        │       eventual_consistency_tests.py
+        │       view_change_tests.py
+        │       __init__.py
+        │       
+        ├───hw4_tests
+        │       advanced_sharding_tests.py
+        │       basic_sharding_tests.py
+        │       performance_tests.py
+        │       resharding_tests.py
+        │       __init__.py
 ```
 
 **Changelog:**
