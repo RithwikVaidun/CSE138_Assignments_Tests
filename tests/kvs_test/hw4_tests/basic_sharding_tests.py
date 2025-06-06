@@ -295,9 +295,13 @@ def test_transparent_proxying(conductor: ClusterConductor, fx: KvsFixture):
     return True, "OK"
 
 BASIC_SHARDING_TESTS = [
-    TestCase("test_single_shard_backwards_compatibility", test_single_shard_backwards_compatibility),
     TestCase("test_basic_two_shard_setup", test_basic_two_shard_setup),
     TestCase("test_key_distribution_across_shards", test_key_distribution_across_shards),
     TestCase("test_causal_consistency_across_shards", test_causal_consistency_across_shards),
     TestCase("test_transparent_proxying", test_transparent_proxying),
+]
+
+# Backwards compatibility test - only run when explicitly filtered
+COMPATIBILITY_TESTS = [
+    TestCase("test_single_shard_backwards_compatibility", test_single_shard_backwards_compatibility),
 ]

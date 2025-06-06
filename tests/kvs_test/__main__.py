@@ -121,6 +121,11 @@ def main():
             *hw4_tests.RESHARDING_TESTS,
             *hw4_tests.PERFORMANCE_TESTS,
         ]
+        
+        # Add compatibility tests only when explicitly filtered
+        if args.filter and ("compatibility" in args.filter or "backwards" in args.filter):
+            tests.extend(hw4_tests.COMPATIBILITY_TESTS)
+        
         KvsFixture = KvsFixture4  # Use the enhanced HW4 API
         log("Running Assignment 4 tests with HW4 API (sharding support)")
 
