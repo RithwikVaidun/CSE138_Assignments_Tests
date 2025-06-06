@@ -122,6 +122,8 @@ Project Root:
 ```
 
 **Changelog:**
+* v1.4: Corrected the default run so legacy view test (i.e., non-sharded view test) is not run in the default run for Assignment 4 tests.
+  * The above bug was caught thanks to Yagnesh and Charles.
 * v1.3: Assignment 4's test API and tests were created.
 * v1.2: A few status and Docker network bugs were fixed by Alan, Rithwick, and Graham for Assignment 3.
 * v1.1: Assignment 3's test API and tests were created.
