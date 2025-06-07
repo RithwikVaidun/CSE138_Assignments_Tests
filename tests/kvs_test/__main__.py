@@ -8,14 +8,14 @@ from pathlib import Path
 import docker
 
 from . import hw2_tests, hw3_tests, hw4_tests
-from .hw2_tests.advanced_tests import ADVANCED_TESTS
 from .containers import ClusterConductor, ContainerBuilder
-from .util import capture_logs, log
 
 # Import all API versions
 from .hw2_api import KvsFixture as KvsFixture2
+from .hw2_tests.advanced_tests import ADVANCED_TESTS
 from .hw3_api import KvsFixture as KvsFixture3
 from .hw4_api import KvsFixture as KvsFixture4
+from .util import capture_logs, log
 
 CONTAINER_IMAGE_ID = "kvstore-hw4-test"
 TEST_GROUP_ID = "hw4"
@@ -116,16 +116,14 @@ def main():
         log("Running Assignment 3 tests with HW3 API")
     else:  # args.hw == 4
         tests = [
-            *hw4_tests.BASIC_SHARDING_TESTS,
-            *hw4_tests.ADVANCED_SHARDING_TESTS,
-            *hw4_tests.RESHARDING_TESTS,
-            *hw4_tests.PERFORMANCE_TESTS,
+            *hw4_tests.SHUFFLE_TESTS,
+            *hw4_tests.CLAUDE_TESTS,
         ]
-        
+
         # Add compatibility tests only when explicitly filtered
         if args.filter and ("compatibility" in args.filter or "backwards" in args.filter):
             tests.extend(hw4_tests.COMPATIBILITY_TESTS)
-        
+
         KvsFixture = KvsFixture4  # Use the enhanced HW4 API
         log("Running Assignment 4 tests with HW4 API (sharding support)")
 
@@ -170,7 +168,7 @@ def main():
                     should_stop = True
 
         # save test log
-        (test_dir / "log.txt").write_text(logs.buffer, encoding='utf-8')
+        (test_dir / "log.txt").write_text(logs.buffer, encoding="utf-8")
 
         if should_stop:
             break
@@ -185,7 +183,7 @@ def main():
 
     # save summary
     output_dir.mkdir(parents=True, exist_ok=True)
-    (output_dir / "summary.txt").write_text(logs.buffer, encoding='utf-8')
+    (output_dir / "summary.txt").write_text(logs.buffer, encoding="utf-8")
 
     # clean up
     runner.cleanup_environment()
@@ -193,3 +191,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+

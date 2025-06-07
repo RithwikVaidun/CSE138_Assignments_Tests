@@ -1,13 +1,14 @@
-# hw4_api.py - Assignment 4 Sharding API
+# hw4_api.py
 import json
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Protocol, Sequence, Dict, Any, Optional, Union
+from typing import Any, Dict, List, Optional, Protocol, Sequence, Union
 
 import requests
 
 from .util import log
+
 
 class _NodeLike(Protocol):
     name: str
@@ -15,34 +16,40 @@ class _NodeLike(Protocol):
     ip: str
     index: int
 
+
 @dataclass
 class KvsClientException(Exception):
     message: str
+
 
 class KvsTimeout(Exception):
     def __str__(self):
         return "request timed out"
 
+
 class CreateClient(Protocol):
     def __call__(self, name: str) -> "KvsClient": ...
+
 
 class KvsFixture:
     def __init__(self):
         self.clients: list[KvsClient] = []
 
-    def create_client(self, name: str) -> "KvsClient":
+    def create_client(self, name: str, keep_meta: bool = True) -> "KvsClient":
         client = KvsClient(name=name)
         self.clients.append(client)
         return client
 
+
 class KvsClient:
-    def __init__(self, name: str, timeout: int = 10, num_retries: int = 3):
+    def __init__(self, name: str, timeout: int = 10, num_retries: int = 3, keep_meta: bool = True):
         self.name = name
         self.timeout = timeout
         self.num_retries = num_retries
         self.causal_metadata = {}
         self._log = []
         self._id = 0
+        self.keep_meta = keep_meta
 
     def _new_id(self) -> int:
         id = self._id
@@ -61,23 +68,19 @@ class KvsClient:
         return f"http://localhost:{node.external_port}"
 
     def _request(self, corr_id: int, node: _NodeLike, method: str, path: str, **kwargs) -> requests.Response:
-        """Send HTTP request with causal metadata handling"""
+        # send request, but handle some exceptions
         url = f"{self._base_url(node)}/{path.lstrip('/')}"
         response = None
         timed_out = False
-        
-        # Add causal metadata to request body if it exists
-        if 'json' in kwargs and self.causal_metadata:
-            kwargs['json']['causal-metadata'] = self.causal_metadata
-        elif method != 'DELETE':
-            if 'json' not in kwargs:
-                kwargs['json'] = {}
-            kwargs['json']['causal-metadata'] = self.causal_metadata
 
-        # Add X-Causal-Metadata header (Assignment 4 requirement)
-        if 'headers' not in kwargs:
-            kwargs['headers'] = {}
-        kwargs['headers']['X-Causal-Metadata'] = json.dumps(self.causal_metadata)
+        # Add causal metadata to the request body if it exists
+        if "json" in kwargs and self.causal_metadata:
+            kwargs["json"]["causal-metadata"] = self.causal_metadata
+        elif method != "DELETE":  # DELETE doesn't have a body
+            if "json" not in kwargs:
+                kwargs["json"] = {}
+            kwargs["json"]["causal-metadata"] = self.causal_metadata
+        # log(f"doing a request {self.name}  ({kwargs.get('json')})")
 
         try:
             for i in range(self.num_retries):
@@ -89,38 +92,27 @@ class KvsClient:
                 except requests.exceptions.ConnectionError:
                     if i == self.num_retries - 1:
                         raise
-                    time.sleep(0.5)
-            
+                    time.sleep(0.5)  # Short delay before retry
+
             if response is None:
                 raise KvsClientException(f"failed to connect after {self.num_retries} attempts")
 
             # Update causal metadata from response if available
-            if response.ok and response.text:
-                try:
-                    response_json = response.json()
-                    if 'causal-metadata' in response_json:
-                        self.causal_metadata = response_json['causal-metadata']
-                except:
-                    pass  # Response might not be JSON
+            if response.ok and "causal-metadata" in response.json():
+                if self.keep_meta:
+                    self.causal_metadata = response.json()["causal-metadata"]
+                else:
+                    self.causal_metadata = {}
 
             return response
-            
+
         except requests.exceptions.Timeout:
             timed_out = True
             res = requests.Response()
             res.status_code = 408
             return res
         finally:
-            log_entry = {
-                "id": corr_id,
-                "url": url,
-                "method": method,
-                "payload": kwargs.get("json"),
-                "headers": kwargs.get("headers", {}),
-                "status_code": response.status_code if response is not None else None,
-                "response_text": response.text if response is not None else None,
-                "timed_out": timed_out
-            }
+            log_entry = {"id": corr_id, "url": url, "method": method, "payload": kwargs.get("json"), "status_code": response.status_code if response is not None else None, "response_text": response.text if response is not None else None, "timed_out": timed_out}
             self._log.append(log_entry)
 
     def ping(self, node: _NodeLike) -> bool:
@@ -134,333 +126,107 @@ class KvsClient:
             return False
 
     def put(self, node: _NodeLike, key: str, value: str) -> Dict[str, Any]:
-        """Put a key-value pair (with automatic sharding/proxying)"""
+        """Put a key-value pair into the store and return response data"""
         id = self._new_id()
-        log(f"client {self.name} [{id}] -> {node.name}: put {key!r} := {value!r}")
+        # log(f"CLIENT BEFORE PUT: {self.causal_metadata}")
+        # log(f"client {self.name} [{id}] -> {node.name}: put {key!r} := {value!r}")
         if len(key) == 0:
             raise ValueError("key cannot be empty")
-        
+
+        before = self.causal_metadata
         res = self._request(id, node, "put", f"data/{key}", json={"value": value})
-        
-        response_data = {
-            "status_code": res.status_code,
-            "ok": res.ok
-        }
-        
-        if res.ok and res.text:
-            try:
-                response_json = res.json()
-                response_data["causal_metadata"] = response_json.get("causal-metadata", {})
-            except:
-                response_data["causal_metadata"] = {}
-        
+        # res = self._request(id, node, "put", f"data/{key}", json={"value": value, "causal_metadata": self.causal_metadata})
+
+        val = None
+        response_data = {"status_code": res.status_code, "ok": res.ok}
+
+        if res.ok:
+            response_data["causal_metadata"] = res.json().get("causal-metadata", "u done goofed")
+            response_data["value"] = res.json().get("value")
+
+        after = self.causal_metadata
+
+        # log(f"client {self.name} [{id}] -> {node.name}: PUT ({key!r}, {value!r}) --> {res.status_code}\n")
+        # self.show_metadata_gain(before, after)
+
         return response_data
 
     def get(self, node: _NodeLike, key: str) -> Dict[str, Any]:
-        """Get a value (with automatic sharding/proxying)"""
+        """Get a value for a key from the store and return response data"""
         id = self._new_id()
         log(f"client {self.name} [{id}] -> {node.name}: get {key!r}")
         if len(key) == 0:
             raise ValueError("key cannot be empty")
-        
+
+        before = self.causal_metadata
+
         res = self._request(id, node, "get", f"data/{key}", json={})
-        
-        response_data = {
-            "status_code": res.status_code,
-            "ok": res.ok,
-            "value": None
-        }
-        
-        if res.ok and res.text:
-            try:
-                data = res.json()
-                response_data["value"] = data.get("value")
-                response_data["causal_metadata"] = data.get("causal-metadata", {})
-                log(f"client {self.name} [{id}] -> {node.name}: get {key!r} |> {response_data['value']!r}")
-            except:
-                pass
-        
+
+        response_data = {"status_code": res.status_code, "ok": res.ok, "value": None}
+
+        if res.ok:
+            data = res.json()
+            response_data["value"] = data.get("value")
+        else:
+            log(f"client {self.name} [{id}] -> {node.name}: GET {key!r} --> {res.status_code}\n")
+        after = self.causal_metadata
+
         return response_data
 
     def get_all(self, node: _NodeLike) -> Dict[str, Any]:
-        """Get all key-value pairs from this node's shard only"""
+        """Get all key-value pairs from the store and return response data"""
         id = self._new_id()
-        log(f"client {self.name} [{id}] -> {node.name}: list (shard-local)")
-        
+        # log(f"client {self.name} [{id}] -> {node.name}: list")
+
         res = self._request(id, node, "get", "data", json={})
-        
-        response_data = {
-            "status_code": res.status_code,
-            "ok": res.ok,
-            "values": {}
-        }
-        
-        if res.ok and res.text:
-            try:
-                data = res.json()
-                response_data["values"] = data.get("items", {})
-                response_data["causal_metadata"] = data.get("causal-metadata", {})
-                log(f"client {self.name} [{id}] -> {node.name}: list |> [{len(response_data['values'])} items]")
-            except:
-                pass
-        
+
+        response_data = {"status_code": res.status_code, "ok": res.ok, "values": {}}
+
+        if res.ok:
+            data = res.json()
+            response_data["items"] = data.get("items", {})
+            response_data["causal_metadata"] = data.get("causal-metadata", {})
+            log(f"client {self.name} [{id}] -> {node.name}: list |> [{len(response_data['items'])} items]")
+            # log(f"res med: {response_data['causal_metadata'].get('seen_values')}\n")
+
+        # log(f"  client metadata : {self.causal_metadata.get('seen_values')}\n")
+
         return response_data
 
-    def send_view(self, node: _NodeLike, view: Sequence[_NodeLike]) -> bool:
-        """Send a legacy view update to a node"""
-        id = self._new_id()
-        view_ = [dict(address=f"{n.ip}:8081", id=n.index) for n in view]
-        log(f"client {self.name} [{id}] -> {node.name}: legacy view {[f'{n.name} (addr={n.ip}:8081, id={n.index})' for n in view]}")
-        
-        res = self._request(id, node, "put", "view", json={"view": view_})
-        return res.ok
-
-    def send_sharded_view(self, node: _NodeLike, sharded_view: Dict[str, Sequence[_NodeLike]]) -> bool:
+    def send_view(self, node: _NodeLike, shards: Dict[str, List[_NodeLike]]) -> bool:
         """Send a sharded view update to a node"""
         id = self._new_id()
-        
-        # Convert to Assignment 4 sharded format
-        view_obj = {}
-        for shard_name, shard_nodes in sharded_view.items():
-            view_obj[shard_name] = [
-                {"address": f"{n.ip}:8081", "id": n.index} 
-                for n in shard_nodes
-            ]
-        
-        log(f"client {self.name} [{id}] -> {node.name}: sharded view {list(view_obj.keys())}")
-        
-        res = self._request(id, node, "put", "view", json={"view": view_obj})
+        view_dict = {}
+        for shard_name, members in shards.items():
+            view_dict[shard_name] = [{"address": f"{n.ip}:8081", "id": n.index} for n in members]
+
+        # log(f"client {self.name} [{id}] -> {node.name}: view {view_dict}")
+
+        res = self._request(id, node, "put", "view", json={"view": view_dict})
         return res.ok
 
-    def broadcast_view(self, nodes: Sequence[_NodeLike]) -> bool:
-        """Broadcast a legacy view update to all nodes"""
-        log(f"client {self.name}: broadcast legacy view")
+    def broadcast_view(self, shard_layout: Dict[str, Union[int, List[int]]], all_nodes: List[_NodeLike]) -> bool:
+        """Convert shard layout using node indices to actual nodes and broadcast the view"""
+        normalized_shards = {}
+
+        for shard_name, node_ids in shard_layout.items():
+            if isinstance(node_ids, int):
+                node_ids = [node_ids]
+            normalized_shards[shard_name] = [all_nodes[i] for i in node_ids]
+
+        return self.broadcast_view_h(normalized_shards)
+
+    def broadcast_view_h(self, shards: Dict[str, List[_NodeLike]]) -> bool:
+        """Broadcast a sharded view update to all nodes"""
+        # log(f"client {self.name}: broadcast view")
         success = True
-        for node in nodes:
-            if not self.send_view(node, nodes):
-                success = False
+        for shard_nodes in shards.values():
+            for node in shard_nodes:
+                # log(f"node {node}")
+                if not self.send_view(node, shards):
+                    success = False
         return success
 
-    def broadcast_sharded_view(self, sharded_view: Dict[str, Sequence[_NodeLike]]) -> bool:
-        """Broadcast a sharded view to all nodes in the view"""
-        log(f"client {self.name}: broadcast sharded view")
-        success = True
-        
-        # Get all nodes across all shards
-        all_nodes = []
-        for shard_nodes in sharded_view.values():
-            all_nodes.extend(shard_nodes)
-        
-        # Send sharded view to all nodes
-        for node in all_nodes:
-            if not self.send_sharded_view(node, sharded_view):
-                success = False
-        
-        return success
-    
     def reset_causal_metadata(self):
         """Reset the client's causal metadata to empty"""
         self.causal_metadata = {}
-
-    def get_shard_data(self, nodes: Sequence[_NodeLike]) -> Dict[str, Dict[str, str]]:
-        """Get data from each shard separately (for distribution analysis)"""
-        shard_data = {}
-        
-        for i, node in enumerate(nodes):
-            shard_name = f"shard_{i}"
-            result = self.get_all(node)
-            if result["ok"]:
-                shard_data[shard_name] = result["values"]
-            else:
-                shard_data[shard_name] = {}
-        
-        return shard_data
-
-    def verify_key_distribution(self, keys: Sequence[str], nodes: Sequence[_NodeLike]) -> Dict[str, Any]:
-        """Verify that keys are properly distributed across shards"""
-        shard_data = self.get_shard_data(nodes)
-        
-        # Count keys per shard
-        distribution = {}
-        total_keys = 0
-        all_found_keys = set()
-        
-        for shard_name, shard_keys in shard_data.items():
-            count = len(shard_keys)
-            distribution[shard_name] = count
-            total_keys += count
-            all_found_keys.update(shard_keys.keys())
-        
-        # Check for missing or duplicated keys
-        missing_keys = set(keys) - all_found_keys
-        extra_keys = all_found_keys - set(keys)
-        
-        return {
-            "distribution": distribution,
-            "total_keys": total_keys,
-            "missing_keys": list(missing_keys),
-            "extra_keys": list(extra_keys),
-            "shard_data": shard_data
-        }
-
-    def wait_for_convergence(self, keys: Sequence[str], nodes: Sequence[_NodeLike], 
-                           max_wait: float = 10.0) -> bool:
-        """Wait for eventual consistency across all shards"""
-        start_time = time.time()
-        
-        while time.time() - start_time < max_wait:
-            try:
-                # Check if all keys are accessible from all nodes
-                all_accessible = True
-                for key in keys:
-                    for node in nodes:
-                        result = self.get(node, key)
-                        if not result["ok"]:
-                            all_accessible = False
-                            break
-                    if not all_accessible:
-                        break
-                
-                if all_accessible:
-                    return True
-                
-                time.sleep(0.5)
-            except:
-                time.sleep(0.5)
-        
-        return False
-
-    def test_causal_consistency_across_shards(self, nodes: Sequence[_NodeLike]) -> bool:
-        """Test that causal consistency is maintained across shard boundaries"""
-        try:
-            # Create a causal chain that might span shards
-            self.put(nodes[0], "causal_test_1", "value_1")
-            
-            # Read from different node, creating dependency
-            result = self.get(nodes[1] if len(nodes) > 1 else nodes[0], "causal_test_1")
-            if not result["ok"]:
-                return False
-            
-            # Write dependent value
-            self.put(nodes[0], "causal_test_2", "value_2")
-            
-            # Verify causal order is maintained
-            result = self.get(nodes[-1], "causal_test_2")
-            if not result["ok"]:
-                return False
-            
-            # Final verification - should be able to read both
-            result1 = self.get(nodes[-1], "causal_test_1")
-            result2 = self.get(nodes[-1], "causal_test_2")
-            
-            return result1["ok"] and result2["ok"]
-            
-        except Exception as e:
-            log(f"Causal consistency test failed: {e}")
-            return False
-
-    def measure_proxy_latency(self, key: str, nodes: Sequence[_NodeLike]) -> Dict[str, float]:
-        """Measure latency difference between local and proxied requests"""
-        if len(nodes) < 2:
-            return {}
-        
-        # Put a key and determine which shard it's in
-        self.put(nodes[0], key, "test_value")
-        time.sleep(1)
-        
-        # Find which node has the key locally
-        local_node = None
-        remote_nodes = []
-        
-        for node in nodes:
-            result = self.get_all(node)
-            if result["ok"] and key in result["values"]:
-                local_node = node
-            else:
-                remote_nodes.append(node)
-        
-        if not local_node or not remote_nodes:
-            return {}
-        
-        # Measure local access time
-        start_time = time.time()
-        for _ in range(5):
-            self.get(local_node, key)
-        local_time = (time.time() - start_time) / 5
-        
-        # Measure remote access time (proxied)
-        start_time = time.time()
-        for _ in range(5):
-            self.get(remote_nodes[0], key)
-        remote_time = (time.time() - start_time) / 5
-        
-        return {
-            "local_avg_ms": local_time * 1000,
-            "remote_avg_ms": remote_time * 1000,
-            "proxy_overhead_ms": (remote_time - local_time) * 1000,
-            "proxy_overhead_percent": ((remote_time - local_time) / local_time * 100) if local_time > 0 else 0
-        }
-
-# Utility functions for sharding tests
-def create_sharded_view(shard_config: Dict[str, Sequence[_NodeLike]]) -> Dict[str, Sequence[_NodeLike]]:
-    """Helper to create sharded view configuration"""
-    return shard_config
-
-def nodes_to_shard_view(nodes: Sequence[_NodeLike], num_shards: int = 2) -> Dict[str, Sequence[_NodeLike]]:
-    """Convert node list to sharded view (helper for tests)"""
-    sharded_view = {}
-    nodes_per_shard = len(nodes) // num_shards
-    
-    for shard_idx in range(num_shards):
-        start_idx = shard_idx * nodes_per_shard
-        end_idx = start_idx + nodes_per_shard
-        
-        # For the last shard, include any remaining nodes
-        if shard_idx == num_shards - 1:
-            end_idx = len(nodes)
-        
-        shard_nodes = nodes[start_idx:end_idx]
-        
-        if shard_nodes:  # Only create shard if it has nodes
-            shard_name = f"Shard{shard_idx + 1}"
-            sharded_view[shard_name] = shard_nodes
-    
-    return sharded_view
-
-def analyze_key_distribution(shard_data: Dict[str, Dict[str, str]]) -> Dict[str, Any]:
-    """Analyze key distribution across shards for load balancing"""
-    total_keys = sum(len(keys) for keys in shard_data.values())
-    
-    if total_keys == 0:
-        return {"total_keys": 0, "balance_score": 1.0, "distribution": {}}
-    
-    # Calculate distribution metrics
-    distribution = {}
-    max_keys = 0
-    min_keys = float('inf')
-    
-    for shard_name, keys in shard_data.items():
-        count = len(keys)
-        distribution[shard_name] = count
-        max_keys = max(max_keys, count)
-        min_keys = min(min_keys, count)
-    
-    # Calculate balance score (1.0 = perfect balance, 0.0 = worst balance)
-    if max_keys == 0:
-        balance_score = 1.0
-    else:
-        balance_score = min_keys / max_keys
-    
-    # Calculate expected keys per shard
-    num_shards = len(shard_data)
-    expected_per_shard = total_keys / num_shards if num_shards > 0 else 0
-    
-    return {
-        "total_keys": total_keys,
-        "distribution": distribution,
-        "balance_score": balance_score,
-        "max_keys_per_shard": max_keys,
-        "min_keys_per_shard": min_keys,
-        "expected_per_shard": expected_per_shard,
-        "imbalance_ratio": (max_keys - min_keys) / total_keys if total_keys > 0 else 0
-    }
