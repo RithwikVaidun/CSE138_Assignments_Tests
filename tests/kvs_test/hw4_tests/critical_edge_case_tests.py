@@ -299,8 +299,11 @@ def test_shard_failure_during_data_migration(conductor: ClusterConductor, fx: Kv
     # Apply new view to trigger resharding
     def apply_view():
         for node in nodes[:6]:
-            requests.put(f"http://localhost:{node.external_port}/view", json={"view": new_view}, timeout=10)
-    
+            try:
+                requests.put(f"http://localhost:{node.external_port}/view", json={"view": new_view}, timeout=10)
+            except:
+                pass # Expected for killed nodes
+            
     # Start resharding in background
     migration_thread = threading.Thread(target=apply_view)
     migration_thread.start()
