@@ -125,6 +125,15 @@ Project Root:
 ```
 
 **Changelog:**
+* V1.5: Removed `test_no_operation_resharding` thanks to Kat's noticing that it is against Assignment 4's specifications, and added 8 new test cases under critical_edge_case_tests.py (which will also run faster thanks to multi-threading):
+    * Key assignment consistency across nodes
+    * Deep cross-shard causal chains
+    * Partial shard recovery scenarios
+    * Cross-shard concurrent write conflicts
+    * Shard failure during data migration
+    * Many shards performance (8 shards)
+    * Proxy request failure handling
+    * Large dataset resharding (with parallel insertion)
 * v1.4: Corrected the default run so legacy view test (i.e., non-sharded view test) is not run in the default run for Assignment 4 tests.
   * The above bug was caught thanks to Yagnesh and Charles.
 * v1.3: Assignment 4's test API and tests were created.
