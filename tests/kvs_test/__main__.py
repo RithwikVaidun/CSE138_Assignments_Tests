@@ -120,6 +120,7 @@ def main():
             *hw4_tests.ADVANCED_SHARDING_TESTS,
             *hw4_tests.RESHARDING_TESTS,
             *hw4_tests.PERFORMANCE_TESTS,
+            *hw4_tests.CRITICAL_EDGE_CASE_TESTS,
         ]
         
         # Add compatibility tests only when explicitly filtered
