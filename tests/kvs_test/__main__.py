@@ -120,7 +120,10 @@ def main():
             # *hw4_tests.ADVANCED_SHARDING_TESTS,
             # *hw4_tests.RESHARDING_TESTS,
             # *hw4_tests.PERFORMANCE_TESTS,
-            *hw4_tests.CRITICAL_EDGE_CASE_TESTS,
+            # *hw4_tests.CRITICAL_EDGE_CASE_TESTS,
+            *hw4_tests.SHARD_TESTS,
+            *hw4_tests.BASIC_TESTS,
+            # *hw4_tests.CRITICAL_EDGE_CASE_TESTS,
         ]
 
         # Add compatibility tests only when explicitly filtered
@@ -194,4 +197,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

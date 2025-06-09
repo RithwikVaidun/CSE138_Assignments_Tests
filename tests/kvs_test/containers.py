@@ -235,11 +235,17 @@ class ClusterConductor:
         return container_ip
 
     # create a cluster of nodes on the base network
-    def spawn_cluster(self, node_count: int) -> list[ClusterNode]:
-        log(f"spawning cluster of {node_count} nodes")
+    def spawn_cluster(self, node_count: int, nodes_per_shard: int) -> list[ClusterNode]:
+        log(f"spawning cluster of {node_count} nodes with up to {nodes_per_shard} nodes per shard")
 
         spawned = [self.spawn_node(network=self.base_net) for _ in range(node_count)]
 
+        shards = {}
+        for i, node in enumerate(spawned):
+            shard_key = f"shard{i // nodes_per_shard}"
+            if shard_key not in shards:
+                shards[shard_key] = []
+            shards[shard_key].append(node)
         # wait for the nodes to come online (sequentially)
         log("waiting for nodes to come online...")
         wait_online_start = time.time()
@@ -253,7 +259,37 @@ class ClusterConductor:
 
         log("all nodes online")
 
-        return spawned
+        return shards
+
+    def alternative_spawn_cluster(self, shard_node_counts: list[list[int]]) -> list[ClusterNode]:
+        total_nodes = sum(count[0] for count in shard_node_counts)
+
+        log(f"spawning cluster with {len(shard_node_counts)} shards and {total_nodes} nodes")
+
+        spawned = [self.spawn_node(network=self.base_net) for _ in range(total_nodes)]
+
+        shards = {}
+        node_idx = 0
+        for shard_num, count_list in enumerate(shard_node_counts):
+            count = count_list[0]
+            shard_key = f"shard{shard_num}"
+            shards[shard_key] = []
+            for _ in range(count):
+                shards[shard_key].append(spawned[node_idx])
+                node_idx += 1
+
+        # Wait for the nodes to come online (sequentially)
+        log("waiting for nodes to come online...")
+        wait_online_start = time.time()
+        for node in spawned:
+            while not self._is_online(node):
+                if time.time() - wait_online_start > self.wait_online_timeout_s:
+                    raise RuntimeError(f"node {node.name} did not come online")
+                time.sleep(0.2)
+            log(f"  node {node.name} online")
+
+        log("all nodes online")
+        return shards
 
     def spawn_node(self, network: NetworkHandle) -> ClusterNode:
         # spawn the nodes
