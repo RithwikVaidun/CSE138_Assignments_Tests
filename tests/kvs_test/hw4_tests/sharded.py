@@ -535,6 +535,6 @@ SHARD_TESTS = [
     # TestCase("test_causal_consistency_across_shards", test_causal_consistency_across_shards),
     # TestCase("test_add_remove_multiple_shards", test_add_remove_multiple_shards),
     # TestCase("test_shard_with_no_keys", test_shard_with_no_keys),
-    # TestCase("test_proxy_get_put_to_correct_shard", test_proxy_get_put_to_correct_shard),
-    # TestCase("test_large_view_change", test_large_view_change),
+    TestCase("test_proxy_get_put_to_correct_shard", test_proxy_get_put_to_correct_shard),
+    TestCase("test_large_view_change", test_large_view_change),
 ]

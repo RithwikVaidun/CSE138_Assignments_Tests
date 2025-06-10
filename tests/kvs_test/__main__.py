@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#! 0/usr/bin/env python3
 
 import argparse
 import datetime
@@ -121,8 +121,8 @@ def main():
             # *hw4_tests.RESHARDING_TESTS,
             # *hw4_tests.PERFORMANCE_TESTS,
             # *hw4_tests.CRITICAL_EDGE_CASE_TESTS,
-            *hw4_tests.SHARD_TESTS,
             *hw4_tests.BASIC_TESTS,
+            *hw4_tests.SHARD_TESTS,
             # *hw4_tests.CRITICAL_EDGE_CASE_TESTS,
         ]
 
